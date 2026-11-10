@@ -2,520 +2,274 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <title>Lights Out Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f4f6f8" />
+  <title>Lights Out</title>
   <link rel="icon" href="faviconLO.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="lights.css" />
+  <script src="fit.js" defer></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', 'Montserrat', system-ui, sans-serif;
-      background: #f6f8fa;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    .game-card {
-      background: #fff;
-      border-radius: 16px;
-      border: 1.5px solid #e0e0e0;
-      padding: 24px 16px 20px 16px;
-      max-width: 420px;
-      width: 98vw;
-      height: 98vh;
-      margin: 4px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      box-shadow: 0 6px 32px rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
+    :root { --accent: #7a6c00; --accent-tint: var(--lights-tint); }
+    html, body { overflow: hidden; }
+    .shell { width: min(100%, 34rem); padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .topbar { padding: .25rem 0 .5rem; }
+    .btn { background: var(--lights); color: var(--lights-ink); }
+    .btn:hover { background: var(--lights-strong); }
 
-    .game-header-bar {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-    .timer-badge, .error-badge {
-      background: #f0f2f5;
-      color: #222;
-      font-weight: 600;
-      font-size: 0.60rem;
-      border-radius: 999px;
-      padding: 3px 10px;
-      min-width: 45px;
-      text-align: center;
-      letter-spacing: 0.5px;
-      border: 1px solid #e0e0e0;
-    }
-    .error-badge {
-      color: #222;
-      background: #fbe9e7;
-      border: 1px solid #ffcdd2;
-    }
-    h1 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      margin: 0;
-      color: #222;
-    }
-    .header {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #222;
-      margin: 1.5rem 0 2rem 0;
-      text-align: center;
-      letter-spacing: 1px;
-    }
+    .stats { margin-bottom: .75rem; }
+    .goal { margin: 0 auto .875rem; max-width: 30ch; text-align: center; color: var(--ink-2); font-size: .9375rem; text-wrap: balance; }
+    .goal strong { color: var(--ink); font-weight: 600; }
 
-    #controls {
-      margin-bottom: 1.2rem;
-      background: #fffde7;
-      border-radius: 12px;
-      padding: 0.7rem 1.2rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-      display: inline-block;
-      width: 100%;
-      max-width: 350px;
-      text-align: center;
+    .levels {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: .25rem;
+      padding: .25rem; margin: 0 0 .875rem;
+      background: var(--surface-2); border-radius: 1rem; border: 0;
     }
-    #controls label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: 600;
+    .levels legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .levels label { position: relative; }
+    .levels input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+    .levels span {
+      display: grid; place-items: center; min-height: 2.75rem; padding: .125rem .25rem;
+      border-radius: .75rem; font-size: .875rem; font-weight: 700; color: var(--ink-2); text-align: center; line-height: 1.15;
+      transition: background .2s, color .2s, box-shadow .2s;
     }
-    #controls select {
-      margin-right: 0.5rem;
-      padding: 0.4rem;
-      border-radius: 6px;
-      border: 1px solid #ddd;
-      background: white;
+    .levels small { display: block; font-size: .6875rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .levels input:checked + span { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+    .levels input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+    /* board: a soft white tray of rounded keys; lit keys turn warm yellow */
+    .board-wrap {
+      padding: clamp(.875rem, 4vw, 1.375rem);
+      border-radius: 1.75rem; border: 0;
+      background: linear-gradient(180deg, #ffffff, #fbfaf3);
+      box-shadow: 0 1px 2px rgb(29 33 37 / .05), 0 12px 32px rgb(120 100 0 / .10);
     }
-    #controls button {
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      border: 1px solid #4CAF50;
-      background: #4CAF50;
-      color: white;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    #controls button:hover {
-      background: #45a049;
-    }
-    .grid {
-      display: grid;
-      gap: 4px;
-      justify-content: center;
-      align-items: center;
-      background: #fffde7;
-      border-radius: 18px;
-      padding: 12px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    .board {
+      --n: 3;
+      display: grid; grid-template-columns: repeat(var(--n), 1fr);
+      gap: clamp(.375rem, 2vw, .75rem);
+      width: min(100%, calc(var(--n) * 6.25rem));
+      margin: 0 auto;
     }
     .cell {
-      width: 80px;
-      height: 80px;
+      position: relative; aspect-ratio: 1; display: grid; place-items: center;
+      padding: 14%; border: 0; border-radius: 28%;
+      background: #f1f2f5;
+      box-shadow: inset 0 -3px 0 rgb(29 33 37 / .06), inset 0 1px 0 #fff;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      transition: box-shadow 0.2s, background 0.2s;
-      background: #ffffff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      position: relative;
-      overflow: hidden;
+      transition: background .3s var(--ease), box-shadow .35s var(--ease), transform .25s cubic-bezier(.2, 1.1, .3, 1);
     }
-    .cell:active, .cell.effect {
-      animation: bulbEffect 0.3s;
-      background: #fffde7;
+    .cell img { width: 100%; height: 100%; pointer-events: none; opacity: .55; transition: opacity .25s, transform .35s cubic-bezier(.2, 1.1, .3, 1); }
+    .cell:hover { background: #e9ebef; }
+    .cell:active { transform: scale(.92); }
+    .cell[aria-pressed="true"] {
+      background: radial-gradient(circle at 50% 40%, #fffbd2, #ffe970 75%);
+      box-shadow: inset 0 -3px 0 rgb(170 140 0 / .18), 0 0 0 1.5px #f3df4d, 0 8px 22px rgb(240 205 30 / .45);
     }
-    @keyframes bulbEffect {
-      0% { box-shadow: 0 0 0 0 #ffffff; }
-      50% { box-shadow: 0 0 24px 8px #fef8e7; }
-      100% { box-shadow: 0 0 0 0 #fef8e7; }
-    }
-    .cell img {
-      width: 70px;
-      height: 70px;
-      transition: filter 0.2s;
-    }
-    .cell.on img {
-      filter: drop-shadow(0 0 16px #ffff00) brightness(1.2);
-    }
-    
-    /* Responsive scaling for all devices */
-    @media (max-width: 480px) {
-      .cell {
-        width: 50px;
-        height: 50px;
-      }
-      .cell img {
-        width: 45px;
-        height: 45px;
-      }
-      .grid {
-        gap: 3px;
-        padding: 8px;
-      }
-      #controls {
-        padding: 0.6rem 1rem;
-        max-width: 280px;
-      }
-      #controls select, #controls button {
-        font-size: 0.9rem;
-        padding: 0.35rem;
-      }
-      #controls button {
-        padding: 0.35rem 0.6rem;
-      }
-    }
-    
-    @media (min-width: 481px) and (max-width: 768px) {
-      .cell {
-        width: 65px;
-        height: 65px;
-      }
-      .cell img {
-        width: 58px;
-        height: 58px;
-      }
-      .grid {
-        gap: 4px;
-        padding: 10px;
-      }
-      #controls {
-        max-width: 320px;
-      }
-    }
-    
-    @media (max-height: 600px) {
-      .game-card {
-        height: 96vh;
-        padding: 16px 12px 12px 12px;
-      }
-      .header {
-        margin: 1rem 0 1.2rem 0;
-        font-size: 1.3rem;
-      }
-      #controls {
-        margin-bottom: 1rem;
-        padding: 0.6rem 1rem;
-        max-width: 300px;
-      }
-      #controls select, #controls button {
-        font-size: 0.9rem;
-        padding: 0.3rem;
-      }
-      #controls button {
-        padding: 0.3rem 0.6rem;
-      }
-      .cell {
-        width: 60px;
-        height: 60px;
-      }
-      .cell img {
-        width: 55px;
-        height: 55px;
-      }
-      .grid {
-        gap: 3px;
-        padding: 8px;
-      }
-    }
+    .cell[aria-pressed="true"] img { opacity: 1; transform: scale(1.06); }
+    .cell.blank { visibility: hidden; pointer-events: none; }
+    .cell:focus-visible { outline-offset: 3px; border-radius: 28%; }
+
+    .meter { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; font-size: .8125rem; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .meter .track { flex: 1; height: .375rem; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+    .meter .fill { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--lights); transition: width .35s var(--ease); }
+    .progress { margin: 0; min-width: 5.5rem; text-align: right; }
+
+    .status { min-height: 1.4rem; margin-top: .75rem; }
+    .status.success { color: #6b5d00; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .5rem; }
   </style>
 </head>
 <body>
-  <div class="game-card">
-    
-    <div class="game-header-bar">
-      <span class="timer-badge" id="timer">0</span>
-      <span class="error-badge" id="moves">0 moves</span>
-    </div>
-    
-    <div class="header"><strong>Light's Out</strong></div>
+  <main class="shell">
+    <header class="topbar">
+      <a class="icon-btn" href="index.html" aria-label="Back to all games">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <h1>Lights Out</h1>
+      <span style="width:44px" aria-hidden="true"></span>
+    </header>
 
-    <div id="controls">
-      <label for="difficulty">Choose difficulty: </label>
-      <select id="difficulty">
-        <option value="3">Easy (3x3)</option>
-        <option value="4">Medium (4x4)</option>
-        <option value="5">Hard (5x5)</option>
-        <option value="cross">Special (Cross)</option>
-      </select>
-      <button onclick="startGame()">Start Game</button>
+    <div class="stats" role="group" aria-label="Game status">
+      <span class="stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg><span class="sr-only">Time</span><time id="timer">00:00</time></span>
+      <span class="stat"><span class="label">Moves</span><span id="moves">0</span></span>
     </div>
-    <div class="message" id="messageBox"></div>
-    <div id="game" class="grid"></div>
-  </div>
+
+    <p class="goal">Tapping a bulb flips it <strong>and its neighbours</strong>. Turn every bulb on, or every bulb off.</p>
+
+    <fieldset class="levels" id="levels">
+      <legend>Difficulty</legend>
+      <label><input type="radio" name="level" value="3" checked /><span>Easy<small>3×3</small></span></label>
+      <label><input type="radio" name="level" value="4" /><span>Medium<small>4×4</small></span></label>
+      <label><input type="radio" name="level" value="5" /><span>Hard<small>5×5</small></span></label>
+      <label><input type="radio" name="level" value="cross" /><span>Special<small>Cross</small></span></label>
+    </fieldset>
+
+    <section class="panel board-wrap" aria-label="Board">
+      <div class="board" id="board" role="grid" aria-label="Light bulbs"></div>
+      <div class="meter"><span class="track" aria-hidden="true"><i class="fill" id="fill"></i></span><p class="progress" id="progress"></p></div>
+    </section>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <div class="controls">
+      <button class="btn secondary" id="restartBtn">Restart</button>
+      <button class="btn" id="newBtn">New puzzle</button>
+    </div>
+  </main>
+
+  <dialog class="result" id="result" aria-labelledby="resultTitle">
+    <img class="art" src="lightbulb_on.svg" alt="" />
+    <h2 id="resultTitle">Solved!</h2>
+    <p id="resultText"></p>
+    <div class="figures" id="resultFigures"></div>
+    <div class="actions">
+      <button class="btn" id="nextBtn">Next level</button>
+      <button class="btn secondary" id="againBtn">Play again</button>
+      <a class="btn secondary" href="game_one.html">Try Find the Zebra</a>
+    </div>
+  </dialog>
+
   <script>
-    let gridSize = 3;
-    let grid = [];
-    let timerInterval = null;
-    let startTime = null;
-    let moves = 0;
-    const messageBox = document.getElementById('messageBox');
+  (() => {
+    const CROSS = [[0,2],[1,1],[1,2],[1,3],[2,0],[2,1],[2,2],[2,3],[2,4],[3,1],[3,2],[3,3],[4,2]];
+    const LEVELS = ['3', '4', '5', 'cross'];
+    const NAMES = { '3': 'Easy', '4': 'Medium', '5': 'Hard', 'cross': 'Special' };
+    const $ = (s) => document.querySelector(s);
+    const boardEl = $('#board'), movesEl = $('#moves'), timerEl = $('#timer'), statusEl = $('#status');
 
-    function createGrid(size) {
-      const container = document.getElementById("game");
-      container.innerHTML = "";
-      
-      if (size === "cross") {
-        createCrossGrid();
-        return;
-      }
-      
-      container.style.gridTemplateColumns = `repeat(${size}, auto)`;
-      grid = Array(size).fill(null).map(() => Array(size).fill(false));
-      for (let row = 0; row < size; row++) {
-        for (let col = 0; col < size; col++) {
-          const cell = document.createElement("div");
-          cell.classList.add("cell");
-          cell.dataset.row = row;
-          cell.dataset.col = col;
-          cell.innerHTML = getCellSVG(false);
-          cell.addEventListener("click", () => {
-            toggle(row, col);
-            moves++;
-            showMoves();
-            cell.classList.add("effect");
-            setTimeout(() => cell.classList.remove("effect"), 300);
-          });
-          container.appendChild(cell);
+    let level = '3', n = 3, active, grid, start, moves, seconds, timerId, solved, focusIdx = 0;
+
+    const key = (r, c) => r * n + c;
+    const isActive = (r, c) => r >= 0 && c >= 0 && r < n && c < n && active[key(r, c)];
+    const activeCells = () => active.flatMap((a, i) => a ? [i] : []);
+
+    function setup(lv) {
+      level = lv; n = lv === 'cross' ? 5 : +lv;
+      active = Array(n * n).fill(lv !== 'cross');
+      if (lv === 'cross') CROSS.forEach(([r, c]) => active[key(r, c)] = true);
+      boardEl.style.setProperty('--n', n);
+      boardEl.innerHTML = '';
+      for (let r = 0; r < n; r++) {
+        const row = document.createElement('div');
+        row.setAttribute('role', 'row'); row.style.display = 'contents';
+        for (let c = 0; c < n; c++) {
+          const b = document.createElement('button');
+          b.className = 'cell'; b.dataset.i = key(r, c);
+          b.setAttribute('role', 'gridcell');
+          if (!active[key(r, c)]) { b.classList.add('blank'); b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); }
+          b.innerHTML = '<img alt="" />';
+          row.appendChild(b);
         }
+        boardEl.appendChild(row);
       }
     }
 
-    function createCrossGrid() {
-      const container = document.getElementById("game");
-      container.innerHTML = "";
-      container.style.gridTemplateColumns = "repeat(5, auto)";
-      
-      // Create a 5x5 grid but only show cells in cross pattern
-      grid = Array(5).fill(null).map(() => Array(5).fill(false));
-      const crossPositions = [
-        [0,2], [1,1], [1,2], [1,3], [2,0], [2,1], [2,2], [2,3], [2,4], [3,1], [3,2], [3,3], [4,2]
-      ];
-      
-      for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 5; col++) {
-          const cell = document.createElement("div");
-          cell.classList.add("cell");
-          cell.dataset.row = row;
-          cell.dataset.col = col;
-          
-          // Check if this position should be visible in cross pattern
-          const isVisible = crossPositions.some(pos => pos[0] === row && pos[1] === col);
-          
-          if (isVisible) {
-            cell.innerHTML = getCellSVG(false);
-            cell.style.visibility = "visible";
-            cell.addEventListener("click", () => {
-              toggleCross(row, col);
-              moves++;
-              showMoves();
-              cell.classList.add("effect");
-              setTimeout(() => cell.classList.remove("effect"), 300);
-            });
-          } else {
-            cell.innerHTML = "";
-            cell.style.visibility = "hidden";
-            cell.style.pointerEvents = "none";
-          }
-          
-          container.appendChild(cell);
-        }
+    function flip(g, i) {
+      const r = Math.floor(i / n), c = i % n;
+      for (const [dr, dc] of [[0,0],[0,1],[0,-1],[1,0],[-1,0]]) {
+        if (isActive(r + dr, c + dc)) g[key(r + dr, c + dc)] = !g[key(r + dr, c + dc)];
       }
     }
+    const isSolved = (g) => { const v = activeCells().map(i => g[i]); return v.every(Boolean) || v.every(x => !x); };
 
-    function getCellSVG(isOn) {
-      if (isOn) {
-        return `<img src="lightbulb_on.svg" alt="On">`;
-      } else {
-        return `<img src="lightbulb_off.svg" alt="Off">`;
-      }
+    function scramble() {
+      const cells = activeCells(), count = level === 'cross' ? 15 : n * 2;
+      let g;
+      do {                                   // never hand out an already-solved board
+        g = Array(n * n).fill(false);
+        for (let k = 0; k < count; k++) flip(g, cells[Math.floor(Math.random() * cells.length)]);
+      } while (isSolved(g));
+      return g;
     }
 
-    function toggle(r, c) {
-      const dirs = [
-        [0, 0],
-        [0, 1],
-        [0, -1],
-        [1, 0],
-        [-1, 0],
-      ];
-      for (const [dr, dc] of dirs) {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize) {
-          grid[nr][nc] = !grid[nr][nc];
-        }
-      }
-      updateGrid();
-    }
-
-    function toggleCross(r, c) {
-      const dirs = [
-        [0, 0],
-        [0, 1],
-        [0, -1],
-        [1, 0],
-        [-1, 0],
-      ];
-      const crossPositions = [
-        [0,2], [1,1], [1,2], [1,3], [2,0], [2,1], [2,2], [2,3], [2,4], [3,1], [3,2], [3,3], [4,2]
-      ];
-      
-      for (const [dr, dc] of dirs) {
-        const nr = r + dr;
-        const nc = c + dc;
-        if (nr >= 0 && nr < 5 && nc >= 0 && nc < 5) {
-          const isInCross = crossPositions.some(pos => pos[0] === nr && pos[1] === nc);
-          if (isInCross) {
-            grid[nr][nc] = !grid[nr][nc];
-          }
-        }
-      }
-      updateCrossGrid();
-    }
-
-    function showTimer(seconds) {
-      let timerDiv = document.getElementById("timer");
-      const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-      const secs = String(seconds % 60).padStart(2, '0');
-      timerDiv.textContent = `${mins}:${secs}`;
-    }
-
-    function showMoves() {
-      let movesDiv = document.getElementById("moves");
-      movesDiv.textContent = `Moves: ${moves}`;
-    }
-
-    function startTimer() {
-      startTime = Date.now();
-      showTimer(0);
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        showTimer(seconds);
-      }, 500);
-    }
-
-    function stopTimer() {
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = null;
-    }
-
-    function checkWin() {
-      const allOn = grid.flat().every(cell => cell === true);
-      const allOff = grid.flat().every(cell => cell === false);
-      if (allOn || allOff) {
-        stopTimer();
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const secs = String(seconds % 60).padStart(2, '0');
-        messageBox.textContent = `You solved the puzzle in ${mins}:${secs} and ${moves+1} moves!`;
-      } else {
-        messageBox.textContent = "";
-      }
-    }
-
-    function checkCrossWin() {
-      const crossPositions = [
-        [0,2], [1,1], [1,2], [1,3], [2,0], [2,1], [2,2], [2,3], [2,4], [3,1], [3,2], [3,3], [4,2]
-      ];
-      
-      const crossCells = crossPositions.map(pos => grid[pos[0]][pos[1]]);
-      const allOn = crossCells.every(cell => cell === true);
-      const allOff = crossCells.every(cell => cell === false);
-      
-      if (allOn || allOff) {
-        stopTimer();
-        const seconds = Math.floor((Date.now() - startTime) / 1000);
-        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const secs = String(seconds % 60).padStart(2, '0');
-        messageBox.textContent = `You solved the cross puzzle in ${mins}:${secs} and ${moves+1} moves!`;
-      } else {
-        messageBox.textContent = "";
-      }
-    }
-
-    function updateGrid() {
-      const cells = document.querySelectorAll(".cell");
-      cells.forEach(cell => {
-        const row = parseInt(cell.dataset.row);
-        const col = parseInt(cell.dataset.col);
-        cell.classList.toggle("on", grid[row][col]);
-        cell.innerHTML = getCellSVG(grid[row][col]);
+    function render() {
+      const cells = activeCells();
+      let lit = 0;
+      boardEl.querySelectorAll('.cell').forEach(b => {
+        const i = +b.dataset.i; if (!active[i]) return;
+        const on = grid[i]; if (on) lit++;
+        b.setAttribute('aria-pressed', String(on));
+        b.querySelector('img').src = on ? 'lightbulb_on.svg' : 'lightbulb_off.svg';
+        const r = Math.floor(i / n) + 1, c = i % n + 1;
+        b.setAttribute('aria-label', `Row ${r}, column ${c}, ${on ? 'on' : 'off'}`);
+        b.tabIndex = i === focusIdx ? 0 : -1;
       });
-      checkWin();
+      $('#progress').textContent = `${lit} of ${cells.length} on`;
+      $('#fill').style.width = `${lit / cells.length * 100}%`;
+      movesEl.textContent = moves;
     }
 
-    function updateCrossGrid() {
-      const crossPositions = [
-        [0,2], [1,1], [1,2], [1,3], [2,0], [2,1], [2,2], [2,3], [2,4], [3,1], [3,2], [3,3], [4,2]
-      ];
-      const cells = document.querySelectorAll(".cell");
-      cells.forEach(cell => {
-        const row = parseInt(cell.dataset.row);
-        const col = parseInt(cell.dataset.col);
-        const isInCross = crossPositions.some(pos => pos[0] === row && pos[1] === col);
-        
-        if (isInCross) {
-          cell.classList.toggle("on", grid[row][col]);
-          cell.innerHTML = getCellSVG(grid[row][col]);
-        }
-      });
-      checkCrossWin();
+    function tick() {
+      seconds = Math.floor((Date.now() - start) / 1000);
+      timerEl.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     }
+    function stopTimer() { clearInterval(timerId); timerId = null; }
 
-    function scrambleGrid(moves = 10) {
-      if (gridSize === "cross") {
-        scrambleCrossGrid(moves);
-        return;
+    function newGame(fresh = true) {
+      if (fresh) { initial = scramble(); }
+      grid = initial.slice();
+      moves = 0; solved = false; start = null; stopTimer();
+      timerEl.textContent = '00:00';
+      focusIdx = activeCells()[Math.floor(activeCells().length / 2)];
+      statusEl.className = 'status'; statusEl.textContent = '';
+      render();
+    }
+    let initial;
+
+    boardEl.addEventListener('click', (e) => {
+      const b = e.target.closest('.cell'); if (!b || solved) return;
+      const i = +b.dataset.i;
+      if (!start) { start = Date.now(); timerId = setInterval(tick, 250); }
+      flip(grid, i); moves++; focusIdx = i;
+      render();
+      if (isSolved(grid)) win();
+    });
+
+    // arrow-key navigation across the bulbs (skips the empty corners of the cross)
+    boardEl.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: [-1,0], ArrowDown: [1,0], ArrowLeft: [0,-1], ArrowRight: [0,1] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      let r = Math.floor(focusIdx / n), c = focusIdx % n;
+      for (let step = 0; step < n; step++) {
+        r += d[0]; c += d[1];
+        if (r < 0 || c < 0 || r >= n || c >= n) return;
+        if (active[key(r, c)]) break;
       }
-      
-      for (let i = 0; i < moves; i++) {
-        const r = Math.floor(Math.random() * gridSize);
-        const c = Math.floor(Math.random() * gridSize);
-        toggle(r, c);
-      }
+      focusIdx = key(r, c); render();
+      boardEl.querySelector(`[data-i="${focusIdx}"]`).focus();
+    });
+
+    function win() {
+      solved = true; tick(); stopTimer();
+      const allOn = activeCells().every(i => grid[i]);
+      statusEl.className = 'status success';
+      statusEl.textContent = `Solved in ${timerEl.textContent} with ${moves} moves.`;
+      $('#resultText').textContent = allOn ? 'Every bulb is shining.' : 'Every bulb is off.';
+      $('#resultFigures').innerHTML = `<div><strong>${timerEl.textContent}</strong>Time</div><div><strong>${moves}</strong>Moves</div>`;
+      const next = LEVELS[LEVELS.indexOf(level) + 1];
+      $('#nextBtn').hidden = !next;
+      if (next) $('#nextBtn').textContent = `Next: ${NAMES[next]}`;
+      setTimeout(() => $('#result').showModal(), 500);
     }
 
-    function scrambleCrossGrid(moves = 15) {
-      const crossPositions = [
-        [0,2], [1,1], [1,2], [1,3], [2,0], [2,1], [2,2], [2,3], [2,4], [3,1], [3,2], [3,3], [4,2]
-      ];
-      
-      for (let i = 0; i < moves; i++) {
-        const randomPos = crossPositions[Math.floor(Math.random() * crossPositions.length)];
-        toggleCross(randomPos[0], randomPos[1]);
-      }
-    }
+    $('#levels').addEventListener('change', (e) => { setup(e.target.value); newGame(); });
+    $('#newBtn').addEventListener('click', () => newGame());
+    $('#restartBtn').addEventListener('click', () => newGame(false));
+    $('#againBtn').addEventListener('click', () => { $('#result').close(); newGame(); });
+    $('#nextBtn').addEventListener('click', () => {
+      const next = LEVELS[LEVELS.indexOf(level) + 1];
+      $('#result').close();
+      document.querySelector(`input[name="level"][value="${next}"]`).checked = true;
+      setup(next); newGame();
+    });
 
-    function startGame() {
-      const difficulty = document.getElementById("difficulty").value;
-      gridSize = difficulty === "cross" ? "cross" : parseInt(difficulty);
-      moves = 0;
-      showMoves();
-      createGrid(gridSize);
-      if (gridSize === "cross") {
-        scrambleGrid(15);
-      } else {
-        scrambleGrid(gridSize * 2);
-      }
-      startTimer();
-    }
-
-    startGame();
+    setup('3'); newGame();
+  })();
   </script>
 </body>
 </html>

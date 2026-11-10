@@ -3,578 +3,483 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Find the Zebra</title>
+  <meta name="theme-color" content="#f3f4f6" />
+  <title>Find the Zebra · Puzzles</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="games.css" />
+  <script src="fit.js" defer></script>
   <style>
-    :root {
-      /* Responsive sizing knobs (tweak if you want things larger/smaller) */
-      --gap: clamp(8px, 2.5vw, 24px);
-      --box: clamp(44px, 12vw, 60px);        /* drop-box & house size */
-      --charW: clamp(30px, 8.5vw, 48px);     /* character width */
-      --charH: calc(var(--charW) * (62/48)); /* keep original char ratio */
-      --animal: clamp(22px, 6vw, 36px);      /* animal size */
+    html, body { overflow: hidden; }
+    .bar { position: static; }
+    .app { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+    .sheet { padding: .75rem .875rem; }
+    .sheet-head { margin-bottom: .5rem; }
+    .layout { display: grid; gap: .625rem; grid-template-areas: "board" "clues" "guess"; }
+    #boardSec { grid-area: board; } #cluesSec { grid-area: clues; } #guessSec { grid-area: guess; }
+    @media (min-width: 900px) {
+      .layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-areas: "board clues" "guess clues"; align-items: start; gap: 1rem; }
+      
     }
-
-    /* Page container */
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', 'Montserrat', system-ui, sans-serif;
-      background: #f6f8fa;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden; /* NO page scroll */
+    /* phones: a tighter board so the clue text can stay large */
+    @media (max-width: 899px) {
+      .board { grid-template-columns: 3.75rem repeat(4, minmax(0, 1fr)); gap: .3rem; }
+      .cell { min-height: 3.5rem; padding: .25rem .125rem; gap: 0; }
+      .cell .token, .token { width: 1.875rem; height: 1.875rem; }
+      .cell .name { font-size: .6875rem; }
+      .colhead { gap: 2px; font-size: .75rem; }
+      .rowhead { font-size: .75rem; }
+      .strip { padding: .125rem 0 .5rem; }
+      .who { padding: .375rem .25rem; }
     }
-
-    /* Card */
-    .game-card {
-      background: #fff;
-      border-radius: 16px;
-      border: 1.5px solid #e0e0e0;
-      padding: 18px 8px 12px 8px;
-      max-width: 420px;
-      width: 98vw;
-      height: 98vh;
-      margin: 4px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-
-      /* NEW: allow inner scroll if content taller than card */
-      overflow-y: auto;
-    } 
-
-    .game-header-bar {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
+    @media (max-width: 899px) and (max-height: 700px) {
+      .colhead small { display: none; }
+      .clue { padding: .15rem .25rem; line-height: 1.28; }
+      .bar { padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }
     }
-    .timer-badge, .error-badge {
-      background: #f0f2f5;
-      color: #222;
-      font-weight: 600;
-      font-size: 0.60rem;
-      border-radius: 999px;
-      padding: 3px 10px;
-      min-width: 45px;
-      text-align: center;
-      letter-spacing: 0.5px;
-      border: 1px solid #e0e0e0;
-    }
-    .error-badge {
-      color: #e53935;
-      background: #fbe9e7;
-      border: 1px solid #ffcdd2;
-    }
+    .bar { grid-template-columns: 44px 1fr auto auto; }
+    .bar-stats { display: flex; gap: .375rem; }
+    .bar-stats .chip { min-height: 2rem; padding: .25rem .625rem; }
+    @media (max-width: 520px) { .guess-label, .bar-stats .chip > svg { display: none; } .bar { gap: 4px; } .bar h1 { font-size: 1rem; gap: 6px; white-space: nowrap; } .bar h1 .tile { width: 26px; height: 26px; } .bar-stats { gap: 4px; } .bar-stats .chip { padding: .25rem .5rem; } }
+    .layout { margin-top: .25rem; }
+    .result-art.pair { display: flex; align-items: flex-end; gap: 6px; }
+    .result-art.pair .token { width: 64px; height: 64px; }
+    .result-art.pair img { width: 72px; height: 60px; object-fit: contain; }
 
-    .header {
-      font-size: 1.1rem;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      margin: 0;
-      color: #222;
+    /* board */
+    .board { display: grid; grid-template-columns: 4.25rem repeat(4, minmax(0, 1fr)); gap: .375rem; }
+    .colhead { display: grid; justify-items: center; gap: 4px; padding-bottom: 2px; font-size: .8125rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .colhead small { font-size: .6875rem; font-weight: 600; color: var(--ink-2); }
+    .colhead i { width: 100%; height: 4px; border-radius: 2px; background: var(--sunk); transition: background .3s; }
+    .rowhead { display: flex; align-items: center; font-size: .8125rem; font-weight: 700; color: var(--ink-2); }
+    .cell {
+      position: relative; display: grid; place-items: center; align-content: center; gap: 2px;
+      min-height: 4.25rem; padding: .375rem .125rem;
+      border: 1.5px dashed var(--line-2); border-radius: var(--r-md);
+      background: transparent; cursor: pointer;
+      transition: background .2s, border-color .2s, transform .25s var(--spring);
     }
-    .subheader {
-      font-size: 0.92rem;
-      margin: 0;
-      color: #666;
-      font-weight: 600;
+    .cell:hover { background: var(--sunk); border-color: var(--ink-3); }
+    .cell:active { transform: scale(.95); }
+    .cell .plus { width: 1.25rem; height: 1.25rem; color: var(--ink-3); }
+    .cell.filled { border: 1.5px solid transparent; background: var(--sunk); }
+    .cell.filled .token { animation: pop .3s var(--spring); }
+    .cell .name { font-size: .75rem; font-weight: 700; color: var(--ink-2); line-height: 1.1; }
+    .token { width: 2.25rem; height: 2.25rem; }
+    .token img { width: 100%; height: 100%; object-fit: contain; }
+    .img-horse { filter: sepia(100%) saturate(500%) brightness(.7); }
+    .img-mouse { filter: grayscale(100%) brightness(.7); }
+    .board-tools { display: flex; gap: 4px; }
+    .tool {
+      display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+      border: 0; border-radius: 999px; background: var(--sunk); font-size: .8125rem; font-weight: 700; cursor: pointer;
     }
+    .tool:hover:not([disabled]) { background: var(--line); }
+    .tool[disabled] { opacity: .4; cursor: not-allowed; }
+    .tool svg { width: 16px; height: 16px; }
+    @media (max-width: 380px) { .board { grid-template-columns: 3.5rem repeat(4, minmax(0, 1fr)); } .rowhead { font-size: .75rem; } }
 
-    .message {
-      font-weight: bold;
-      font-size: 1rem;
-      margin: 2px 0;
-      color: #1976d2;
-      min-height: 32px;
-      text-align: center;
+    /* clues */
+    .clues { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+    .clue {
+      display: grid; grid-template-columns: 1.75rem 1fr auto; gap: .5rem; align-items: start;
+      width: 100%; padding: .3rem .375rem; border: 0; border-radius: var(--r-sm);
+      background: transparent; text-align: left; cursor: pointer; font-size: .875rem; line-height: 1.35;
+      transition: background .15s;
     }
-    .message.error { color: #e53935; animation: shake 0.3s; }
-    .message.success { color: #43a047; animation: pop 0.4s; }
-
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      25% { transform: translateX(-6px); }
-      50% { transform: translateX(6px); }
-      75% { transform: translateX(-6px); }
-      100% { transform: translateX(0); }
+    .clue:hover { background: var(--sunk); }
+    .clue .check {
+      display: grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+      border: 1.5px solid var(--line-2); font-size: .75rem; font-weight: 800; color: var(--ink-2); font-variant-numeric: tabular-nums;
+      transition: background .2s, border-color .2s, color .2s;
     }
-    @keyframes pop {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.15); }
-      100% { transform: scale(1); }
+    .clue .check svg { width: 14px; height: 14px; display: none; }
+    .clue[aria-pressed="true"] .check { background: var(--game); border-color: var(--game); color: #fff; }
+    .clue[aria-pressed="true"] .check span { display: none; }
+    .clue[aria-pressed="true"] .check svg { display: block; }
+    .clue[aria-pressed="true"] .text { color: var(--ink-2); }
+    .clue .flag { display: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; background: var(--danger-soft); color: var(--danger); font-size: .75rem; font-weight: 800; white-space: nowrap; }
+    .clue.bad .flag { display: inline-flex; }
+    .clue.bad .text { color: var(--ink); }
+
+    /* guess */
+    .guess-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin-top: .25rem; }
+    .who {
+      display: flex; align-items: center; justify-content: center; gap: .375rem; padding: .5rem .25rem;
+      border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--sheet);
+      font-size: .875rem; font-weight: 700; cursor: pointer;
+      transition: transform .25s var(--spring), border-color .15s, background .15s;
     }
+    .who:hover:not([disabled]) { border-color: var(--ink); transform: translateY(-2px); }
+    .who .token { width: 1.75rem; height: 1.75rem; flex: none; }
+    .who.wrong { opacity: .4; text-decoration: line-through; animation: shake .35s; cursor: not-allowed; }
+    .who.right { border-color: var(--game); background: var(--game-soft); color: var(--game-deep); }
+    .who[disabled]:not(.wrong):not(.right) { opacity: .55; cursor: not-allowed; }
+    .hearts { display: inline-flex; gap: 3px; }
+    .hearts svg { width: 16px; height: 16px; color: var(--danger); transition: color .2s, transform .3s var(--spring); }
+    .hearts svg.lost { color: var(--ink-3); fill: none; stroke: currentColor; stroke-width: 2; transform: scale(.85); }
+    .status { min-height: 1.25rem; margin: .5rem 0 0; text-align: center; font-size: .9375rem; font-weight: 700; }
+    .status.err { color: var(--danger); }
 
-    /* GRID — always 4 columns */
-    .game-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: var(--gap);
-      justify-items: center;
-      align-items: end;
-      margin: 0;
+    /* picker */
+    .options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0 12px; }
+    .opt {
+      display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; text-align: left;
+      min-height: 64px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: var(--r-md);
+      background: var(--sheet); cursor: pointer; font-weight: 700;
+      transition: border-color .15s, background .15s;
     }
-    .game-col {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-
-    /* Drop targets */
-    .drop-box {
-      width: var(--box);
-      height: var(--box);
-      border: 2.5px solid #e0e0e0;
-      border-radius: calc(var(--box) * 0.33);
-      background: #f6f8fa;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-    }
-    .drop-box.active { border-color: #ff9800; background: #fff3e0; }
-
-    /* House / Character / Animal sizes follow variables */
-    .house,
-    .house img,
-    .house svg { width: var(--box) !important; height: var(--box) !important; object-fit: contain; display:block; }
-
-    .character-svg,
-    .character-svg img,
-    .character-svg svg { width: var(--charW) !important; height: var(--charH) !important; object-fit: contain; display:block; }
-
-    .animal,
-    .animal img,
-    .animal svg { width: var(--animal) !important; height: var(--animal) !important; object-fit: contain; display:block; }
-
-    .house, .character-svg, .animal { transition: transform 0.18s; border-radius: 18px; }
-    .house:hover, .character-svg:hover, .animal:hover { transform: scale(1.08) translateY(-2px); box-shadow: 0 4px 16px #ffd18044; z-index: 10; }
-    .character-svg.bounce { animation: bounce 0.4s; }
-    @keyframes bounce { 0%{transform:translateY(0)} 50%{transform:translateY(-10px)} 100%{transform:translateY(0)} }
-    .character-svg.glow .head, .character-svg.glow .body { filter: drop-shadow(0 0 10px #ff9800); }
-
-    .game-stats { display: flex; gap: 16px; font-size: 1rem; margin-bottom: 10px; color: #333; font-weight: 600; }
-    .game-stats span { background: #f0f2f5; border-radius: 12px; padding: 4px 14px; min-width: 60px; text-align: center; }
-
-    .clue-box {
-      background: #f0f2f5;
-      padding: 0 10px;
-      width: 100%;
-      max-width: 420px;
-      border-radius: 18px;
-      font-size: 0.75rem;
-      margin: 4px 0 0 0;
-      box-sizing: border-box;
-      color: #333;
-      word-break: break-word;
-      flex: 1;                 /* takes remaining height in card */
-      overflow-y: auto;        /* scroll only inside this box */
-      max-height: 40vh;
-    }
-
-    .answer-row { margin: 16px 0 0 0; display: flex; gap: 10px; align-items: center; justify-content: center; }
-    #answerInput { font-size: 1.1rem; padding: 8px 16px; border-radius: 12px; border: 2px solid #e0e0e0; outline: none; min-width: 140px; background:#fff; color:#222; }
-    #answerInput:focus { border-color: #ff9800; }
-    #submitBtn, #resetBtn {
-      font-size: 1.1rem; padding: 8px 20px; border-radius: 12px; border: none;
-      background: #ff9800; color: #fff; font-weight: 700; cursor: pointer;
-      box-shadow: 0 1px 4px #ffd18044; transition: background 0.2s, transform 0.15s;
-    }
-    #submitBtn:disabled, #resetBtn:disabled { background:#e0e0e0; color:#aaa; cursor:not-allowed; }
-    #submitBtn:hover:not(:disabled), #resetBtn:hover:not(:disabled) { background:#fb8c00; transform:scale(1.05); }
-
-    /* Modal */
-    .modal { position: fixed; inset: 0; background: rgba(44, 62, 80, 0.10);
-      display: none; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.3s; }
-    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    .modal-content {
-      background:#fff; border-radius:28px; box-shadow:0 8px 32px rgba(31,38,135,0.1);
-      padding:32px 18px; text-align:center; font-size:1.05rem; color:#222;
-      min-width:220px; max-width:90vw; animation: pop 0.4s;
-    }
-    .modal-content button { margin-top:18px; }
-
-    /* Character choice buttons */
-    .character-select-row { display: flex; justify-content: center; gap: 16px; margin: 4px 0 0 0; flex-wrap: wrap; }
-    .character-select {
-      font-size: 1.1rem; padding: 8px 18px; border-radius:12px; border:none;
-      background:#f0f2f5; color:#060606; font-weight:700; cursor:pointer;
-      transition: background 0.2s, color 0.2s, transform 0.15s;
-    }
-    .character-select:active { background:#ff9800; color:#fff; transform:scale(0.97); }
-    .character-select[disabled] { background:#e0e0e0; color:#aaa; cursor:not-allowed; }
-    .select-blue{ background:#e3f2fd; color:#1976d2;}
-    .select-purple{ background:#ede7f6; color:#ca8bfe;}
-    .select-pink{ background:#fce4ec; color:#eb6ed0;}
-    .select-white{ background:#f5f5f5; color:#222;}
-    .character-svg.white img, .character-svg.white svg { width:85% !important; height:85% !important; margin:0 auto; display:block; }
-
-    /* Keep your mobile typography tweaks, but DO NOT change columns */
-    @media (max-width: 700px) {
-      .header { font-size: 1.25rem; text-align: center; }
-      .subheader { font-size: 1rem; margin-top: 10px; }
-      .timer-badge, .error-badge { font-size: 0.85rem; padding: 4px 8px; min-width: 40px; }
-      .clue-box { padding: 10px 4vw; font-size: 0.9rem; }
-      .answer-row { flex-direction: column; gap: 8px; margin-top: 16px; }
-      #answerInput, #submitBtn, #resetBtn { font-size: 1rem; padding: 8px 12px; width: 100%; max-width: 300px; }
-      .modal-content { font-size: 1rem; padding: 20px 10px; }
-      .character-select { font-size: 1rem; padding: 6px 14px; }
-    }
+    .opt:hover { border-color: var(--ink); }
+    .opt[aria-current="true"] { border-color: var(--game); background: var(--game-soft); }
+    .opt .token { width: 44px; height: 44px; }
+    .opt small { display: block; font-size: .75rem; font-weight: 600; color: var(--ink-2); }
+    .picker-foot { display: flex; gap: 8px; }
+    .picker-foot .btn { flex: 1; }
+    .rules { margin: 12px 0 18px; padding: 0; list-style: none; display: grid; gap: 12px; }
+    .rules li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; color: var(--ink-2); }
+    .rules b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--game-soft); color: var(--game-deep); font-size: .8125rem; }
+    .rules strong { color: var(--ink); }
   </style>
 </head>
 <body>
-  <div class="game-card">
-    <div class="game-header-bar">
-      <span class="timer-badge" id="timer">00:00</span>
-      <span class="error-badge">Errors: <span id="errorCount">0</span> / 3</span>
-    </div>
-
-    
-    <div class="message" id="messageBox"></div>
-
-    <div class="game-grid">
-      <div class="game-col">
-        <div class="house" draggable="true" data-name="red"><img src="redHouse.svg" alt="Red House" /></div>
-        <div class="character-svg blue" draggable="true" data-name="blue"><img src="blue.svg" alt="Blue Character" class="character-img" /></div>
-        <div class="animal" draggable="true" data-name="flamingo"><img src="flamingo.svg" alt="flamingo" /></div>
-        <div class="drop-box" data-index="0"></div>
+  <div class="app">
+    <header class="bar">
+      <a class="round" href="index.html" aria-label="Back to puzzles">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <h1>
+        <img class="tile" src="favicon.svg" alt="" width="28" height="28" />
+        Find the Zebra
+      </h1>
+        <div class="bar-stats" role="group" aria-label="Game status">
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg><span class="sr-only">Time</span><span class="num" id="timer">0:00</span></span>
+          <span class="chip"><span class="dim guess-label">Guesses</span><span class="hearts" id="hearts" aria-hidden="true"></span><span class="sr-only" id="heartsText"></span></span>
+        </div>
+      <div class="bar-actions">
+        <button class="round" id="helpBtn" aria-label="How to play">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17h.01"/></svg>
+        </button>
       </div>
-      <div class="game-col">
-        <div class="house" draggable="true" data-name="orange"><img src="orangeHouse.svg" alt="Orange House" /></div>
-        <div class="character-svg purple" draggable="true" data-name="purple"><img src="purple.svg" alt="Purple Character" class="character-img" /></div>
-        <div class="animal" draggable="true" data-name="horse"><img src="horse.svg" alt="horse" style="filter:sepia(100%) saturate(500%) brightness(0.7);" /></div>
-        <div class="drop-box" data-index="1"></div>
-      </div>
-      <div class="game-col">
-        <div class="house" draggable="true" data-name="yellow"><img src="yellowHouse.svg" alt="Yellow House" /></div>
-        <div class="character-svg pink" draggable="true" data-name="pink"><img src="pink.svg" alt="Pink Character" class="character-img" /></div>
-        <div class="animal" draggable="true" data-name="mouse"><img src="Rat.svg" alt="mouse" style="filter:grayscale(100%) brightness(0.7);" /></div>
-        <div class="drop-box" data-index="2"></div>
-      </div>
-      <div class="game-col">
-        <div class="house" draggable="true" data-name="green"><img src="greenHouse.svg" alt="Green House" /></div>
-        <div class="character-svg white" draggable="true" data-name="white"><img src="white.svg" alt="White Character" class="character-img" /></div>
-        <div class="animal" draggable="true" data-name="zebra"><img src="Zebra.svg" alt="zebra" /></div>
-        <div class="drop-box" data-index="3"></div>
-      </div>
-    </div>
+    </header>
 
-    <div class="subheader">Who has the zebra?</div>
-    <div class="character-select-row">
-      <button class="character-select select-blue" data-name="blue">Blue</button>
-      <button class="character-select select-purple" data-name="purple">Purple</button>
-      <button class="character-select select-pink" data-name="pink">Pink</button>
-      <button class="character-select select-white" data-name="white">White</button>
-    </div>
 
-    <div class="clue-box" id="clueBox">
-      <p><strong>Clue 1:</strong> The pink character lives in the leftmost house.</p>
-      <p><strong>Clue 2:</strong> The horse lives in the green house.</p>
-      <p><strong>Clue 3:</strong> The flamingo is kept in the orange house.</p>
-      <p><strong>Clue 4:</strong> The green house is immediately to the right of the orange house.</p>
-      <p><strong>Clue 5:</strong> The red house is immediately to the left of the orange house.</p>
-      <p><strong>Clue 6:</strong> The blue character lives immediately to the left of the flamingo’s house.</p>
-      <p><strong>Clue 7:</strong> The purple character loves flamingos.</p>
-      <p><strong>Clue 8:</strong> The mouse is in the leftmost house.</p>
+    <div class="layout">
+      <section class="sheet" id="boardSec" aria-labelledby="boardTitle">
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="boardTitle">Your board</h2>
+          <div class="board-tools">
+            <button class="tool" id="undoBtn" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo</button>
+            <button class="tool" id="clearBtn" disabled>Clear</button>
+          </div>
+        </div>
+        <div class="board" id="board" role="group" aria-label="Houses 1 to 4, left to right"></div>
+      </section>
+
+      <section class="sheet" id="cluesSec" aria-labelledby="cluesTitle">
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="cluesTitle">Clues</h2>
+          <p class="muted">Tap to tick off</p>
+        </div>
+        <ol class="clues" id="clues"></ol>
+      </section>
+
+      <section class="sheet" id="guessSec" aria-labelledby="guessTitle">
+        <div class="sheet-head"><h2 class="sheet-title" id="guessTitle">Who has the zebra?</h2><p class="muted">Three guesses</p></div>
+        
+        <div class="guess-row" id="guessRow"></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div id="modal" class="modal">
-    <div class="modal-content" id="modalContent"></div>
-  </div>
+  <p class="sr-only" aria-live="polite" id="announcer"></p>
+
+  <dialog class="pop" id="picker" aria-labelledby="pickerTitle">
+    <div class="grabber" aria-hidden="true"></div>
+    <h2 id="pickerTitle"></h2>
+    <p class="muted" id="pickerSub"></p>
+    <div class="options" id="options"></div>
+    <div class="picker-foot">
+      <button class="btn ghost" id="pickerClear">Clear cell</button>
+      <button class="btn ghost" id="pickerClose">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog class="pop" id="help" aria-labelledby="helpTitle">
+    <div class="grabber" aria-hidden="true"></div>
+    <h2 id="helpTitle">How to play</h2>
+    <ol class="rules">
+      <li><b>1</b><span><strong>Fill the board.</strong> Four houses stand in a row. Tap any cell to choose its house colour, resident or pet.</span></li>
+      <li><b>2</b><span><strong>Follow the clues.</strong> Tick them off as you use them. A clue your board breaks gets flagged.</span></li>
+      <li><b>3</b><span><strong>Name the owner.</strong> Pick who has the zebra. You have three guesses.</span></li>
+    </ol>
+    <button class="btn" style="width:100%" id="helpClose">Start playing</button>
+  </dialog>
+
+  <dialog class="pop" id="result" aria-labelledby="resultTitle">
+    <div class="grabber" aria-hidden="true"></div>
+    <div class="result-hero" id="resultHero">
+      <div class="result-art pair" id="resultBadge" aria-hidden="true"></div>
+      <h2 id="resultTitle"></h2>
+      <p id="resultText"></p>
+    </div>
+    <div class="figures" id="resultFigures"></div>
+    <div class="actions">
+      <button class="btn" id="shareBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Share result</button>
+      <button class="btn ghost" id="againBtn">Play again</button>
+      <a class="btn ghost" href="game_two.html">Try Lights Out</a>
+    </div>
+    <p class="toast" id="toast" role="status" aria-live="polite"></p>
+  </dialog>
 
   <script>
-    // Timer & game state
-    let timerInterval, seconds = 0, errors = 0, guesses = 0, maxGuesses = 3;
-    const timerEl = document.getElementById('timer');
-    const errorEl = document.getElementById('errorCount');
-    const messageBox = document.getElementById('messageBox');
-    const modal = document.getElementById('modal');
-    const modalContent = document.getElementById('modalContent');
+  (() => {
+    const HOUSE = { red: ['#e5484d', '#a8262b'], orange: ['#f76b15', '#b2470a'], yellow: ['#ffc53d', '#a77b00'], green: ['#30a46c', '#1b6b45'] };
+    const PERSON = { blue: '#3e82f7', purple: '#8e4ec6', pink: '#e93d82', white: '#ffffff' };
+    const PIECES = {
+      house: ['red', 'orange', 'yellow', 'green'],
+      character: ['blue', 'purple', 'pink', 'white'],
+      animal: ['flamingo', 'horse', 'mouse', 'zebra'],
+    };
+    const ANIMAL = { flamingo: ['flamingo.svg', ''], horse: ['horse.svg', 'img-horse'], mouse: ['Rat.svg', 'img-mouse'], zebra: ['Zebra.svg', ''] };
+    const ROW = { house: 'House', character: 'Resident', animal: 'Pet' };
+    const cap = s => s[0].toUpperCase() + s.slice(1);
+    const label = (cat, id) => cat === 'house' ? `${cap(id)} house` : cap(id);
+    const CLUES = [
+      'The pink character lives in the leftmost house.',
+      'The horse lives in the green house.',
+      'The flamingo is kept in the orange house.',
+      'The green house is immediately to the right of the orange house.',
+      'The red house is immediately to the left of the orange house.',
+      'The blue character lives immediately to the left of the flamingo’s house.',
+      'The purple character loves flamingos.',
+      'The mouse is in the leftmost house.',
+    ];
+    const ANSWER = 'blue', MAX = 3;
 
-    function startTimer() {
-      timerInterval = setInterval(() => {
-        seconds++;
-        let min = String(Math.floor(seconds / 60)).padStart(2, '0');
-        let sec = String(seconds % 60).padStart(2, '0');
-        timerEl.textContent = `${min}:${sec}`;
-      }, 1000);
-    }
-    function stopTimer() { clearInterval(timerInterval); }
-    function showModal(msg) {
-      modalContent.innerHTML = msg + `<br><button onclick='resetGame()' id='modalResetBtn'>Play Again</button>`;
-      modal.style.display = 'flex';
-      setTimeout(() => { document.getElementById('modalResetBtn').focus(); }, 100);
-    }
-    function hideModal() { modal.style.display = 'none'; }
-
-    function resetGame() {
-      stopTimer();
-      seconds = 0; errors = 0; guesses = 0;
-      timerEl.textContent = '00:00';
-      errorEl.textContent = '0';
-      messageBox.textContent = '';
-      messageBox.className = 'message';
-      document.querySelectorAll('.character-select').forEach(b => b.disabled = false);
-      // clear drop boxes
-      document.querySelectorAll('.drop-box').forEach(box => {
-        box.innerHTML = '';
-        box.style.background = '#f6f8fa';
-      });
-      hideModal();
-      startTimer();
-    }
-
-    startTimer();
-
-    // Character selection buttons
-    document.querySelectorAll('.character-select').forEach(btn => {
-      btn.onclick = function() {
-        if (guesses >= maxGuesses) return;
-        guesses++;
-        const selected = btn.dataset.name;
-        if (selected === "blue") {
-          stopTimer();
-          messageBox.textContent = `✔ Correct! You found the zebra owner in ${timerEl.textContent}`;
-          messageBox.className = 'message success';
-          document.querySelectorAll('.character-select').forEach(b => b.disabled = true);
-          showModal(`<b>🎉 Congratulations!</b><br>You found the zebra owner in <b>${timerEl.textContent}</b>!`);
-        } else {
-          errors++;
-          errorEl.textContent = errors;
-          messageBox.textContent = "❌ Try again!";
-          messageBox.className = 'message error';
-          if (guesses >= maxGuesses) {
-            messageBox.textContent = "❌ No more guesses! Game over.";
-            document.querySelectorAll('.character-select').forEach(b => b.disabled = true);
-            stopTimer();
-            showModal(`<b>Game Over</b><br>No more guesses!<br>The correct answer was <b>blue</b>.`);
-          }
-        }
-      };
-    });
-
-    // Lighten color helper
-    function lightenColor(hex, percent) {
-      hex = hex.replace(/^#/, '');
-      if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
-      let num = parseInt(hex, 16);
-      let r = (num >> 16) & 0xFF, g = (num >> 8) & 0xFF, b = num & 0xFF;
-      r = Math.round(r + (255 - r) * percent);
-      g = Math.round(g + (255 - g) * percent);
-      b = Math.round(b + (255 - b) * percent);
-      return `rgb(${r},${g},${b})`;
-    }
-
-    // Update drop box background from house color
-    function updateDropBoxBackground(box) {
-      const houseWrapper = box.querySelector('[data-category="house"]');
-      if (houseWrapper) {
-        let svg = houseWrapper.querySelector('svg');
-        let color = svg?.querySelector('polygon')?.getAttribute('fill') || svg?.querySelector('rect')?.getAttribute('fill');
-        if (!color) {
-          let img = houseWrapper.querySelector('img');
-          if (img && img.src) {
-            let match = img.src.match(/([a-zA-Z]+)House\.svg$/);
-            if (match) {
-              const colorName = match[1].toLowerCase();
-              const colorMap = { red: '#f44336', orange: '#ff9800', yellow: '#ffeb3b', green: '#8bc34a' };
-              color = colorMap[colorName];
-            }
-          }
-        }
-        if (color) { box.style.background = lightenColor(color, 0.45); return; }
+    function token(cat, id) {
+      if (cat === 'house') {
+        const [f, s] = HOUSE[id];
+        return `<svg class="token" viewBox="0 0 40 40" aria-hidden="true"><path d="M5.5 18.5 20 6l14.5 12.5V33a2 2 0 0 1-2 2h-25a2 2 0 0 1-2-2z" fill="${f}" stroke="${s}" stroke-width="2" stroke-linejoin="round"/><rect x="16.5" y="24" width="7" height="11" rx="1.5" fill="#fff" opacity=".9"/></svg>`;
       }
-      box.style.background = '#f6f8fa';
+      if (cat === 'character') {
+        const f = PERSON[id], stroke = id === 'white' ? '#9aa1ab' : 'none';
+        return `<svg class="token" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="${f}" stroke="${stroke}" stroke-width="1.5"/><circle cx="14.5" cy="18" r="4.2" fill="#fff" stroke="${id === 'white' ? '#9aa1ab' : 'none'}"/><circle cx="25.5" cy="18" r="4.2" fill="#fff" stroke="${id === 'white' ? '#9aa1ab' : 'none'}"/><circle cx="15.3" cy="18.6" r="2" fill="#15171b"/><circle cx="26.3" cy="18.6" r="2" fill="#15171b"/></svg>`;
+      }
+      const [src, cls] = ANIMAL[id];
+      return `<span class="token"><img src="${src}" class="${cls}" alt="" draggable="false" /></span>`;
     }
 
-    // Category helper
-    function getCategory(el) {
-      if (el.classList.contains('house')) return 'house';
-      if (el.classList.contains('character-svg')) return 'character';
-      if (el.classList.contains('animal')) return 'animal';
-      return '';
-    }
+    const $ = s => document.querySelector(s);
+    const boardEl = $('#board'), cluesEl = $('#clues'), guessRow = $('#guessRow');
+    const timerEl = $('#timer'), statusEl = $('#status'), announcer = $('#announcer');
+    const announce = m => { announcer.textContent = ''; requestAnimationFrame(() => announcer.textContent = m); };
+    const heart = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3.1 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.7 0 5.9 3.7 4.4 7.2C19.5 16.4 12 21 12 21z"/></svg>';
 
-    // Enable drag for source items
-    document.querySelectorAll('.house, .character-svg, .animal').forEach(el => {
-      el.addEventListener('dragstart', function(e) {
-        e.dataTransfer.setData('name', el.dataset.name || '');
-        e.dataTransfer.setData('category', getCategory(el));
-        e.dataTransfer.setData('html', el.outerHTML);
+    let board, history, guesses, over, startAt, timerId, picking;
+
+    /* ---------- board ---------- */
+    function buildBoard() {
+      boardEl.innerHTML = '<div aria-hidden="true"></div>';
+      for (let c = 0; c < 4; c++) {
+        boardEl.insertAdjacentHTML('beforeend', `<div class="colhead" aria-hidden="true">${c + 1}<small>${c === 0 ? 'left' : c === 3 ? 'right' : '&nbsp;'}</small><i data-bar="${c}"></i></div>`);
+      }
+      for (const cat of ['house', 'character', 'animal']) {
+        boardEl.insertAdjacentHTML('beforeend', `<div class="rowhead" aria-hidden="true">${ROW[cat]}</div>`);
+        for (let c = 0; c < 4; c++) {
+          boardEl.insertAdjacentHTML('beforeend', `<button class="cell" data-cat="${cat}" data-lot="${c}"></button>`);
+        }
+      }
+    }
+    const emptyBoard = () => [0, 1, 2, 3].map(() => ({ house: null, character: null, animal: null }));
+    const where = (cat, id) => board.findIndex(l => l[cat] === id);
+    const snapshot = () => JSON.stringify(board);
+
+    function render() {
+      boardEl.querySelectorAll('.cell').forEach(cell => {
+        const cat = cell.dataset.cat, lot = +cell.dataset.lot, id = board[lot][cat];
+        const key = id || '';
+        if (cell.dataset.shown !== key) {
+          cell.dataset.shown = key;
+          cell.innerHTML = id
+            ? `${token(cat, id)}<span class="name">${cat === 'house' ? cap(id) : cap(id)}</span>`
+            : `<svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
+        }
+        cell.classList.toggle('filled', !!id);
+        cell.setAttribute('aria-label', `House ${lot + 1}, ${ROW[cat].toLowerCase()}: ${id ? label(cat, id) : 'empty'}`);
       });
+      boardEl.querySelectorAll('[data-bar]').forEach(bar => {
+        const h = board[+bar.dataset.bar].house;
+        bar.style.background = h ? HOUSE[h][0] : '';
+      });
+      $('#undoBtn').disabled = history.length === 0 || over;
+      $('#clearBtn').disabled = board.every(l => !l.house && !l.character && !l.animal) || over;
+      checkClues();
+    }
+
+    function commit(mutator, message) {
+      history.push(snapshot());
+      mutator();
+      startTimer();
+      render();
+      if (message) announce(message);
+    }
+
+    /* ---------- picker ---------- */
+    boardEl.addEventListener('click', e => {
+      const cell = e.target.closest('.cell'); if (!cell || over) return;
+      openPicker(cell.dataset.cat, +cell.dataset.lot, cell);
     });
 
-    // Drop zones
-    document.querySelectorAll('.drop-box').forEach(box => {
-      box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('active'); });
-      box.addEventListener('dragleave', e => { box.classList.remove('active'); updateDropBoxBackground(box); });
-      box.addEventListener('drop', e => {
-        e.preventDefault();
-        box.classList.remove('active');
-        let category = e.dataTransfer.getData('category');
+    function openPicker(cat, lot, returnTo) {
+      picking = { cat, lot, returnTo };
+      $('#pickerTitle').textContent = `House ${lot + 1}: ${ROW[cat].toLowerCase()}`;
+      $('#pickerSub').textContent = cat === 'house' ? 'Pick a colour for this house.' : cat === 'character' ? 'Who lives here?' : 'Which animal lives here?';
+      $('#options').innerHTML = PIECES[cat].map(id => {
+        const at = where(cat, id), here = at === lot;
+        const note = here ? 'Placed here' : at > -1 ? `Now in house ${at + 1}, will move` : '';
+        return `<button class="opt" data-id="${id}" aria-current="${here}">${token(cat, id)}<span>${label(cat, id)}${note ? `<small>${note}</small>` : ''}</span></button>`;
+      }).join('');
+      $('#pickerClear').hidden = !board[lot][cat];
+      $('#picker').showModal();
+      const cur = $('#options [aria-current="true"]') || $('#options .opt');
+      cur.focus();
+    }
+    $('#options').addEventListener('click', e => {
+      const opt = e.target.closest('.opt'); if (!opt) return;
+      const { cat, lot } = picking, id = opt.dataset.id;
+      if (board[lot][cat] !== id) {
+        commit(() => {
+          const prev = where(cat, id);
+          if (prev > -1) board[prev][cat] = null;
+          board[lot][cat] = id;
+        }, `${label(cat, id)} placed in house ${lot + 1}.`);
+      }
+      $('#picker').close();
+    });
+    $('#pickerClear').addEventListener('click', () => {
+      const { cat, lot } = picking;
+      commit(() => { board[lot][cat] = null; }, `House ${lot + 1} ${ROW[cat].toLowerCase()} cleared.`);
+      $('#picker').close();
+    });
+    $('#pickerClose').addEventListener('click', () => $('#picker').close());
+    $('#picker').addEventListener('close', () => picking && picking.returnTo && picking.returnTo.focus());
+    // tap outside the sheet closes it
+    document.querySelectorAll('dialog.pop').forEach(d => d.addEventListener('click', e => { if (e.target === d && d.id !== 'result') d.close(); }));
 
-        // Remove previous of same category
-        let prev = box.querySelector(`[data-category="${category}"]`);
-        if (prev) prev.remove();
+    $('#undoBtn').addEventListener('click', () => { if (!history.length) return; board = JSON.parse(history.pop()); render(); announce('Undone.'); });
+    $('#clearBtn').addEventListener('click', () => commit(() => { board = emptyBoard(); }, 'Board cleared.'));
 
-        // Wrapper to allow positioning
-        let wrapper = document.createElement('div');
-        wrapper.dataset.category = category;
-        wrapper.style.position = "absolute";
-        wrapper.style.margin = "0";
-        wrapper.style.pointerEvents = "auto";
-        wrapper.innerHTML = e.dataTransfer.getData('html');
-
-        let dropped = wrapper.firstChild;
-        dropped.setAttribute('draggable', 'true');
-
-        if (category === "house") {
-          // Fill the box
-          wrapper.style.left = "0"; wrapper.style.top = "0";
-          wrapper.style.width = "100%"; wrapper.style.height = "100%";
-          wrapper.style.zIndex = "1";
-          if (dropped.tagName === "SVG" || dropped.tagName === "IMG") {
-            dropped.style.width = "100%";
-            dropped.style.height = "100%";
-            dropped.style.objectFit = "contain";
-            dropped.style.display = "block";
-            dropped.style.background = "none";
-          }
-        }
-
-        if (category === "character") {
-          // Bottom right
-          wrapper.style.left = "75%";
-          wrapper.style.top = "70%";
-          wrapper.style.transform = "translate(-50%, -50%)";
-          wrapper.style.zIndex = "2";
-          // DO NOT set fixed px sizes; CSS handles .character-svg sizing responsively
-        }
-
-        if (category === "animal") {
-          // Upper-left corner
-          wrapper.style.left = "5px";
-          wrapper.style.top = "30px";
-          wrapper.style.zIndex = "3";
-          // DO NOT set fixed px sizes; CSS handles .animal sizing responsively
-        }
-
-        box.appendChild(wrapper);
-        updateDropBoxBackground(box);
-
-        // Allow remove by dragging out / clicking
-        wrapper.addEventListener('dragstart', () => { wrapper.remove(); updateDropBoxBackground(box); });
-        wrapper.addEventListener('click', () => {
-          if (wrapper.parentElement && wrapper.parentElement.classList.contains('drop-box')) {
-            wrapper.remove(); updateDropBoxBackground(box);
-          }
-        });
-      });
+    /* ---------- clues ---------- */
+    CLUES.forEach((t, i) => {
+      cluesEl.insertAdjacentHTML('beforeend', `<li><button class="clue" aria-pressed="false" data-i="${i}">
+        <span class="check" aria-hidden="true"><span>${i + 1}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+        <span class="text"><span class="sr-only">Clue ${i + 1}: </span>${t}</span>
+        <span class="flag"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 7v6M12 17h.01"/></svg>Broken<span class="sr-only"> by your board</span></span></button></li>`);
+    });
+    cluesEl.addEventListener('click', e => {
+      const b = e.target.closest('.clue'); if (!b) return;
+      b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
     });
 
-    // Touch drag-and-drop support (no fixed px sizes)
-    function isTouchDevice() { return 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
-    if (isTouchDevice()) {
-      let touchCategory = '', touchHTML = '';
-      let ghost = null;
-      document.querySelectorAll('.house, .character-svg, .animal').forEach(el => {
-        el.addEventListener('touchstart', function(e) {
-          if (e.touches.length > 1) return;
-          touchCategory = getCategory(el);
-          touchHTML = el.outerHTML;
-          // ghost preview
-          ghost = el.cloneNode(true);
-          ghost.style.position = 'fixed';
-          ghost.style.pointerEvents = 'none';
-          ghost.style.opacity = '0.7';
-          ghost.style.zIndex = '9999';
-          const rect = el.getBoundingClientRect();
-          ghost.style.width = rect.width + 'px';
-          ghost.style.height = rect.height + 'px';
-          ghost.style.left = (e.touches[0].clientX - rect.width/2) + 'px';
-          ghost.style.top = (e.touches[0].clientY - rect.height/2) + 'px';
-          document.body.appendChild(ghost);
-          document.body.style.overflow = 'hidden';
-        });
-        el.addEventListener('touchmove', function(e) {
-          if (!ghost) return;
-          const rect = ghost.getBoundingClientRect();
-          ghost.style.left = (e.touches[0].clientX - rect.width/2) + 'px';
-          ghost.style.top = (e.touches[0].clientY - rect.height/2) + 'px';
-          e.preventDefault();
-        });
-        el.addEventListener('touchend', function(e) {
-          if (!ghost) return;
-          let dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-          while (dropTarget && !dropTarget.classList.contains('drop-box') && dropTarget !== document.body) {
-            dropTarget = dropTarget.parentElement;
-          }
-          if (dropTarget && dropTarget.classList.contains('drop-box')) {
-            // Remove previous of same category
-            let prev = dropTarget.querySelector(`[data-category="${touchCategory}"]`);
-            if (prev) prev.remove();
-
-            // Wrapper
-            let wrapper = document.createElement('div');
-            wrapper.dataset.category = touchCategory;
-            wrapper.style.position = "absolute";
-            wrapper.style.margin = "0";
-            wrapper.style.pointerEvents = "auto";
-            wrapper.innerHTML = touchHTML;
-            let dropped = wrapper.firstChild;
-            dropped.setAttribute('draggable', 'true');
-
-            if (touchCategory === "house") {
-              wrapper.style.left = "0"; wrapper.style.top = "0";
-              wrapper.style.width = "100%"; wrapper.style.height = "100%";
-              wrapper.style.zIndex = "1";
-              if (dropped.tagName === "SVG" || dropped.tagName === "IMG") {
-                dropped.style.width = "100%";
-                dropped.style.height = "100%";
-                dropped.style.objectFit = "contain";
-                dropped.style.display = "block";
-                dropped.style.background = "none";
-              }
-            }
-            if (touchCategory === "character") {
-              wrapper.style.left = "75%";
-              wrapper.style.top = "70%";
-              wrapper.style.transform = "translate(-50%, -50%)";
-              wrapper.style.zIndex = "2";
-            }
-            if (touchCategory === "animal") {
-              wrapper.style.left = "5px";
-              wrapper.style.top = "30px";
-              wrapper.style.zIndex = "3";
-            }
-
-            dropTarget.appendChild(wrapper);
-            updateDropBoxBackground(dropTarget);
-            wrapper.addEventListener('touchstart', function() { wrapper.remove(); updateDropBoxBackground(dropTarget); });
-            wrapper.addEventListener('click', function() {
-              if (wrapper.parentElement && wrapper.parentElement.classList.contains('drop-box')) {
-                wrapper.remove(); updateDropBoxBackground(dropTarget);
-              }
-            });
-          }
-          if (ghost) ghost.remove();
-          ghost = null;
-          document.body.style.overflow = '';
-        });
-      });
+    // Each check returns false only when the board already contradicts the clue.
+    function evaluate(i) {
+      const pos = (cat, id) => where(cat, id);
+      const same = (a, b) => (a < 0 || b < 0) ? null : a === b;
+      const at = (cat, id, lot) => { const p = pos(cat, id); if (p > -1) return p === lot; return board[lot][cat] ? false : null; };
+      const adj = (left, right) => (left < 0 || right < 0) ? null : right === left + 1;
+      switch (i) {
+        case 0: return at('character', 'pink', 0);
+        case 1: return same(pos('animal', 'horse'), pos('house', 'green'));
+        case 2: return same(pos('animal', 'flamingo'), pos('house', 'orange'));
+        case 3: return adj(pos('house', 'orange'), pos('house', 'green'));
+        case 4: return adj(pos('house', 'red'), pos('house', 'orange'));
+        case 5: return adj(pos('character', 'blue'), pos('animal', 'flamingo'));
+        case 6: return same(pos('character', 'purple'), pos('animal', 'flamingo'));
+        case 7: return at('animal', 'mouse', 0);
+      }
     }
+    let lastBad = 0;
+    function checkClues() {
+      let bad = 0;
+      cluesEl.querySelectorAll('.clue').forEach(b => { const broken = evaluate(+b.dataset.i) === false; b.classList.toggle('bad', broken); if (broken) bad++; });
+      if (bad > lastBad) announce(`${bad} ${bad === 1 ? 'clue is' : 'clues are'} broken by your board.`);
+      lastBad = bad;
+    }
+
+    /* ---------- guessing ---------- */
+    PIECES.character.forEach(id => guessRow.insertAdjacentHTML('beforeend', `<button class="who" data-id="${id}">${token('character', id)}${cap(id)}</button>`));
+    guessRow.addEventListener('click', e => {
+      const b = e.target.closest('.who'); if (!b || b.disabled || over) return;
+      startTimer();
+      guesses++;
+      if (b.dataset.id === ANSWER) { b.classList.add('right'); renderHearts(); return finish(true); }
+      b.classList.add('wrong'); b.disabled = true; renderHearts();
+      if (guesses >= MAX) return finish(false);
+      statusEl.className = 'status err';
+      const left = MAX - guesses;
+      statusEl.textContent = `Not ${cap(b.dataset.id)}. ${left} ${left === 1 ? 'guess' : 'guesses'} left.`;
+    });
+    function renderHearts() {
+      $('#hearts').innerHTML = Array.from({ length: MAX }, (_, i) => heart.replace('<svg', `<svg class="${i < MAX - wrongCount() ? '' : 'lost'}"`)).join('');
+      $('#heartsText').textContent = `${MAX - wrongCount()} of ${MAX} guesses left`;
+    }
+    const wrongCount = () => guessRow.querySelectorAll('.who.wrong').length;
+    let won = false;
+
+    /* ---------- timer ---------- */
+    const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    const elapsed = () => startAt ? Math.floor((Date.now() - startAt) / 1000) : 0;
+    function startTimer() { if (startAt || over) return; startAt = Date.now(); timerId = setInterval(() => timerEl.textContent = fmt(elapsed()), 500); }
+
+    /* ---------- finish ---------- */
+    function finish(didWin) {
+      over = true; won = didWin; clearInterval(timerId);
+      const secs = elapsed(); timerEl.textContent = fmt(secs);
+      guessRow.querySelectorAll('.who').forEach(b => b.disabled = true);
+      render();
+      statusEl.className = 'status' + (didWin ? '' : ' err');
+      statusEl.textContent = didWin ? 'Correct, Blue has the zebra.' : 'Out of guesses. Blue had the zebra.';
+      let best = null;
+      try { best = JSON.parse(localStorage.getItem('v2-zebra-best') || 'null'); } catch (e) {}
+      const isBest = didWin && (best == null || secs < best);
+      if (isBest) { try { localStorage.setItem('v2-zebra-best', secs); } catch (e) {} best = secs; }
+      $('#resultHero').classList.toggle('lost', !didWin);
+      $('#resultBadge').innerHTML = token('character', 'blue') + '<img src="Zebra.svg" alt="" />';
+      $('#resultTitle').textContent = didWin ? 'You found the zebra' : 'So close';
+      $('#resultText').textContent = didWin ? (isBest && best !== null ? 'Blue owns it. New best time!' : 'Blue owns it.') : 'Blue owned the zebra. Give it another go.';
+      $('#resultFigures').style.setProperty('--cols', 3);
+      $('#resultFigures').innerHTML = `<div><strong>${fmt(secs)}</strong>Time</div><div><strong>${guesses}/${MAX}</strong>Guesses</div><div><strong>${best != null ? fmt(best) : '–'}</strong>Best</div>`;
+      $('#shareBtn').hidden = false;
+      $('#toast').textContent = '';
+      setTimeout(() => $('#result').showModal(), didWin ? 500 : 400);
+    }
+
+    $('#shareBtn').addEventListener('click', async () => {
+      const text = won
+        ? `Find the Zebra: solved in ${timerEl.textContent} with ${guesses} of ${MAX} guesses.\n${location.href}`
+        : `Find the Zebra beat me today. Can you find who owns it?\n${location.href}`;
+      try {
+        if (navigator.share) { await navigator.share({ text }); return; }
+        await navigator.clipboard.writeText(text);
+        $('#toast').textContent = 'Result copied to clipboard';
+      } catch (e) { if (e.name !== 'AbortError') $('#toast').textContent = 'Couldn’t share. Try copying the page link instead.'; }
+    });
+
+    function reset() {
+      board = emptyBoard(); history = []; guesses = 0; over = false; won = false; lastBad = 0;
+      clearInterval(timerId); startAt = null; timerEl.textContent = '0:00';
+      guessRow.querySelectorAll('.who').forEach(b => { b.disabled = false; b.classList.remove('wrong', 'right'); });
+      cluesEl.querySelectorAll('.clue').forEach(b => b.setAttribute('aria-pressed', 'false'));
+      statusEl.className = 'status'; statusEl.textContent = '';
+      renderHearts(); render();
+    }
+    $('#againBtn').addEventListener('click', () => { $('#result').close(); reset(); });
+    $('#helpBtn').addEventListener('click', () => $('#help').showModal());
+    $('#helpClose').addEventListener('click', () => $('#help').close());
+
+    buildBoard(); reset();
+    try { if (!localStorage.getItem('v2-zebra-seen')) { $('#help').showModal(); localStorage.setItem('v2-zebra-seen', '1'); } } catch (e) {}
+  })();
   </script>
 </body>
 </html>

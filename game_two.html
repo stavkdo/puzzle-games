@@ -252,8 +252,9 @@
       $('#resultText').textContent = allOn ? 'Every bulb is shining.' : 'Every bulb is off.';
       $('#resultFigures').innerHTML = `<div><strong>${timerEl.textContent}</strong>Time</div><div><strong>${moves}</strong>Moves</div>`;
       const next = LEVELS[LEVELS.indexOf(level) + 1];
-      $('#nextBtn').hidden = !next;
-      if (next) $('#nextBtn').textContent = `Next: ${NAMES[next]}`;
+      // after the last level the main button replays it instead of moving on
+      $('#nextBtn').textContent = next ? `Next: ${NAMES[next]}` : 'Play again';
+      $('#againBtn').hidden = !next;
       setTimeout(() => $('#result').showModal(), 500);
     }
 
@@ -264,6 +265,7 @@
     $('#nextBtn').addEventListener('click', () => {
       const next = LEVELS[LEVELS.indexOf(level) + 1];
       $('#result').close();
+      if (!next) { newGame(); return; }
       document.querySelector(`input[name="level"][value="${next}"]`).checked = true;
       setup(next); newGame();
     });

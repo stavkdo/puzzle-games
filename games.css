@@ -30,6 +30,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; scrollbar-color: var(--line-2) transparent; }
 p { text-wrap: pretty; }
 body {
